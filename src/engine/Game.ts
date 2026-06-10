@@ -103,42 +103,47 @@ export class Game {
         this.constrainEntities();
     }
 
+    rivers = [
+        { x: -5, y: CONFIG.RIVER_Y_START, width: CONFIG.LEFT_BRIDGE_X + 5, height: CONFIG.RIVER_Y_END - CONFIG.RIVER_Y_START },
+        { x: CONFIG.LEFT_BRIDGE_X + CONFIG.BRIDGE_WIDTH, y: CONFIG.RIVER_Y_START, width: CONFIG.RIGHT_BRIDGE_X - (CONFIG.LEFT_BRIDGE_X + CONFIG.BRIDGE_WIDTH), height: CONFIG.RIVER_Y_END - CONFIG.RIVER_Y_START },
+        { x: CONFIG.RIGHT_BRIDGE_X + CONFIG.BRIDGE_WIDTH, y: CONFIG.RIVER_Y_START, width: CONFIG.ARENA_WIDTH + 5 - (CONFIG.RIGHT_BRIDGE_X + CONFIG.BRIDGE_WIDTH), height: CONFIG.RIVER_Y_END - CONFIG.RIVER_Y_START }
+    ];
+
     constrainEntities() {
         for (const entity of this.entities) {
-            if (entity.stats.type === 'building' || entity.stats.type === 'tower') continue;
-
             // Keep in bounds
             entity.pos.x = Math.max(entity.stats.radius, Math.min(CONFIG.ARENA_WIDTH - entity.stats.radius, entity.pos.x));
             entity.pos.y = Math.max(entity.stats.radius, Math.min(CONFIG.ARENA_HEIGHT - entity.stats.radius, entity.pos.y));
 
-            // River collision
+            // River collision via AABB
             const isDashing = entity.currentAbilityEffect === 'dashing_dash';
             if (!entity.stats.isAir && !entity.stats.jumpsRiver && !isDashing) {
-                if (entity.pos.y > CONFIG.RIVER_Y_START + entity.stats.radius && entity.pos.y < CONFIG.RIVER_Y_END - entity.stats.radius) {
-                    // Push out of river
-                    const leftBridgeDist = Math.abs(entity.pos.x - (CONFIG.LEFT_BRIDGE_X + CONFIG.BRIDGE_WIDTH/2));
-                    const rightBridgeDist = Math.abs(entity.pos.x - (CONFIG.RIGHT_BRIDGE_X + CONFIG.BRIDGE_WIDTH/2));
+                for (const river of this.rivers) {
+                    const closestX = Math.max(river.x, Math.min(entity.pos.x, river.x + river.width));
+                    const closestY = Math.max(river.y, Math.min(entity.pos.y, river.y + river.height));
+
+                    const dx = entity.pos.x - closestX;
+                    const dy = entity.pos.y - closestY;
+                    const distSq = dx * dx + dy * dy;
                     
-                    if (leftBridgeDist > CONFIG.BRIDGE_WIDTH/2 && rightBridgeDist > CONFIG.BRIDGE_WIDTH/2) {
-                        // Push out of river
-                        const slideTolerance = 1.5;
-                        if (leftBridgeDist < CONFIG.BRIDGE_WIDTH/2 + slideTolerance) {
-                            // Slide horizontally onto the left bridge
-                            entity.pos.x = entity.pos.x < (CONFIG.LEFT_BRIDGE_X + CONFIG.BRIDGE_WIDTH/2) ? 
-                                CONFIG.LEFT_BRIDGE_X : CONFIG.LEFT_BRIDGE_X + CONFIG.BRIDGE_WIDTH;
-                        } else if (rightBridgeDist < CONFIG.BRIDGE_WIDTH/2 + slideTolerance) {
-                            // Slide horizontally onto the right bridge
-                            entity.pos.x = entity.pos.x < (CONFIG.RIGHT_BRIDGE_X + CONFIG.BRIDGE_WIDTH/2) ? 
-                                CONFIG.RIGHT_BRIDGE_X : CONFIG.RIGHT_BRIDGE_X + CONFIG.BRIDGE_WIDTH;
+                    if (distSq < entity.stats.radius * entity.stats.radius) {
+                        if (distSq === 0) {
+                            // Center is exactly inside, push out to nearest edge
+                            const distToLeft = entity.pos.x - river.x;
+                            const distToRight = (river.x + river.width) - entity.pos.x;
+                            const distToTop = entity.pos.y - river.y;
+                            const distToBottom = (river.y + river.height) - entity.pos.y;
+                            
+                            const min = Math.min(distToLeft, distToRight, distToTop, distToBottom);
+                            if (min === distToLeft) entity.pos.x = river.x - entity.stats.radius;
+                            else if (min === distToRight) entity.pos.x = river.x + river.width + entity.stats.radius;
+                            else if (min === distToTop) entity.pos.y = river.y - entity.stats.radius;
+                            else entity.pos.y = river.y + river.height + entity.stats.radius;
                         } else {
-                            // Push vertically to nearest bank
-                            const distToTop = Math.abs(entity.pos.y - CONFIG.RIVER_Y_START);
-                            const distToBottom = Math.abs(entity.pos.y - CONFIG.RIVER_Y_END);
-                            if (distToTop < distToBottom) {
-                                entity.pos.y = CONFIG.RIVER_Y_START;
-                            } else {
-                                entity.pos.y = CONFIG.RIVER_Y_END;
-                            }
+                            const dist = Math.sqrt(distSq);
+                            const overlap = entity.stats.radius - dist;
+                            entity.pos.x += (dx / dist) * overlap;
+                            entity.pos.y += (dy / dist) * overlap;
                         }
                     }
                 }
@@ -174,36 +179,44 @@ export class Game {
                 const minDist = a.stats.radius + b.stats.radius;
                 
                 if (distSq < minDist * minDist && distSq > 0.0001) {
+                    if (a.stats.mass === Infinity && b.stats.mass === Infinity) {
+                        continue; // Both static, don't move
+                    }
+                    
                     const dist = Math.sqrt(distSq);
                     const overlap = minDist - dist;
                     const dir = a.pos.sub(b.pos).normalize();
 
-                    if (a.stats.speed === 0 || b.stats.speed === 0) {
-                        // One is a building/tower, it shouldn't move. Push the troop 100%
-                        const troop = a.stats.speed > 0 ? a : b;
-                        const building = a.stats.speed === 0 ? a : b;
+                    let ratioA, ratioB;
+                    if (a.stats.mass === Infinity) {
+                        ratioA = 0;
+                        ratioB = 1;
+                    } else if (b.stats.mass === Infinity) {
+                        ratioA = 1;
+                        ratioB = 0;
+                    } else {
+                        const totalMass = a.stats.mass + b.stats.mass;
+                        ratioA = b.stats.mass / totalMass;
+                        ratioB = a.stats.mass / totalMass;
+                    }
+
+                    if (ratioA > 0) a.pos = a.pos.add(dir.mul(overlap * ratioA));
+                    if (ratioB > 0) b.pos = b.pos.sub(dir.mul(overlap * ratioB));
+                    
+                    // Add consistent slide to perfectly aligned units against buildings
+                    if (a.stats.mass === Infinity || b.stats.mass === Infinity) {
+                        const troop = a.stats.mass === Infinity ? b : a;
+                        const building = a.stats.mass === Infinity ? a : b;
                         let pushDir = troop.pos.sub(building.pos).normalize();
-                        
-                        // Add consistent slide to perfectly aligned units so they smoothly circle the hitbox
                         if (Math.abs(pushDir.x) < 0.1) {
                             pushDir.x = pushDir.x >= 0 ? 0.3 : -0.3;
-                            pushDir = pushDir.normalize();
+                            troop.pos = troop.pos.add(pushDir.normalize().mul(overlap));
                         }
-                        
-                        troop.pos = troop.pos.add(pushDir.mul(overlap));
-                    } else {
-                        // Both are troops, push based on mass
-                        const totalMass = a.stats.mass + b.stats.mass;
-                        const ratioA = b.stats.mass / totalMass;
-                        const ratioB = a.stats.mass / totalMass;
-
-                        a.pos = a.pos.add(dir.mul(overlap * ratioA));
-                        b.pos = b.pos.sub(dir.mul(overlap * ratioB));
-                        
-                        // Flag for retargeting if physically displaced significantly
-                        if (overlap * ratioA > 0.05) a.wasNudged = true;
-                        if (overlap * ratioB > 0.05) b.wasNudged = true;
                     }
+
+                    // Flag for retargeting if physically displaced significantly
+                    if (overlap * ratioA > 0.05) a.wasNudged = true;
+                    if (overlap * ratioB > 0.05) b.wasNudged = true;
                 }
             }
         }

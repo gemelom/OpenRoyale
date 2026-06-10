@@ -284,7 +284,7 @@ export const Cards: Record<string, EntityStats> = {
         range: 3.5, // 2026 Feb balance change
         sightRange: 3.5,
         radius: 0.6,
-        mass: 10,
+        mass: Infinity,
         isAir: false,
         targetType: 'all',
         projectileSpeed: 10,
@@ -339,7 +339,7 @@ export const Cards: Record<string, EntityStats> = {
         range: 7.5,
         sightRange: 7.5,
         radius: 1.5,
-        mass: 100,
+        mass: Infinity,
         isAir: false,
         targetType: 'all',
         projectileSpeed: 10
@@ -355,7 +355,7 @@ export const Cards: Record<string, EntityStats> = {
         range: 7.0,
         sightRange: 7.0,
         radius: 2.0,
-        mass: 100,
+        mass: Infinity,
         isAir: false,
         targetType: 'all',
         projectileSpeed: 10
