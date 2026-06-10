@@ -320,35 +320,115 @@ export class Entity {
         }
     }
 
+    isLineClear(a: Vector2, b: Vector2): boolean {
+        if (a.y <= CONFIG.RIVER_Y_START && b.y <= CONFIG.RIVER_Y_START) return true;
+        if (a.y >= CONFIG.RIVER_Y_END && b.y >= CONFIG.RIVER_Y_END) return true;
+
+        const y0 = Math.max(CONFIG.RIVER_Y_START, Math.min(a.y, b.y));
+        const y1 = Math.min(CONFIG.RIVER_Y_END, Math.max(a.y, b.y));
+
+        if (y0 === y1) {
+            if (y0 === CONFIG.RIVER_Y_START || y0 === CONFIG.RIVER_Y_END) return true;
+            const minX = Math.min(a.x, b.x);
+            const maxX = Math.max(a.x, b.x);
+            const safeMargin = this.stats.radius + 0.05;
+            const inLeftBridge = minX >= CONFIG.LEFT_BRIDGE_X + safeMargin && maxX <= CONFIG.LEFT_BRIDGE_X + CONFIG.BRIDGE_WIDTH - safeMargin;
+            const inRightBridge = minX >= CONFIG.RIGHT_BRIDGE_X + safeMargin && maxX <= CONFIG.RIGHT_BRIDGE_X + CONFIG.BRIDGE_WIDTH - safeMargin;
+            return inLeftBridge || inRightBridge;
+        }
+        if (y0 > y1) return true;
+
+        const getX = (y: number) => a.x + (y - a.y) * (b.x - a.x) / (b.y - a.y);
+        const x0 = getX(y0);
+        const x1 = getX(y1);
+
+        const minX = Math.min(x0, x1);
+        const maxX = Math.max(x0, x1);
+
+        // Account for unit's physical radius so they don't scrape the corner and get stuck
+        const safeMargin = this.stats.radius + 0.05;
+        const inLeftBridge = minX >= CONFIG.LEFT_BRIDGE_X + safeMargin && maxX <= CONFIG.LEFT_BRIDGE_X + CONFIG.BRIDGE_WIDTH - safeMargin;
+        const inRightBridge = minX >= CONFIG.RIGHT_BRIDGE_X + safeMargin && maxX <= CONFIG.RIGHT_BRIDGE_X + CONFIG.BRIDGE_WIDTH - safeMargin;
+
+        return inLeftBridge || inRightBridge;
+    }
+
+    findPath(start: Vector2, target: Vector2): Vector2[] {
+        if (this.isLineClear(start, target)) return [target];
+
+        const waypoints = [
+            new Vector2(CONFIG.LEFT_BRIDGE_X + CONFIG.BRIDGE_WIDTH / 2, CONFIG.RIVER_Y_START),
+            new Vector2(CONFIG.LEFT_BRIDGE_X + CONFIG.BRIDGE_WIDTH / 2, CONFIG.RIVER_Y_END),
+            new Vector2(CONFIG.RIGHT_BRIDGE_X + CONFIG.BRIDGE_WIDTH / 2, CONFIG.RIVER_Y_START),
+            new Vector2(CONFIG.RIGHT_BRIDGE_X + CONFIG.BRIDGE_WIDTH / 2, CONFIG.RIVER_Y_END),
+        ];
+
+        const nodes = [start, target, ...waypoints];
+        const numNodes = nodes.length;
+        
+        const adj: number[][] = Array(numNodes).fill(0).map(() => Array(numNodes).fill(Infinity));
+        for (let i = 0; i < numNodes; i++) {
+            for (let j = 0; j < numNodes; j++) {
+                if (i === j) {
+                    adj[i][j] = 0;
+                } else if (this.isLineClear(nodes[i], nodes[j])) {
+                    adj[i][j] = nodes[i].distanceTo(nodes[j]);
+                }
+            }
+        }
+
+        const dist = Array(numNodes).fill(Infinity);
+        const prev = Array(numNodes).fill(-1);
+        const unvisited = new Set([0, 1, 2, 3, 4, 5]);
+        dist[0] = 0;
+
+        while (unvisited.size > 0) {
+            let u = -1;
+            let minDist = Infinity;
+            for (const v of unvisited) {
+                if (dist[v] < minDist) {
+                    minDist = dist[v];
+                    u = v;
+                }
+            }
+
+            if (u === -1 || u === 1) break;
+            unvisited.delete(u);
+
+            for (const v of unvisited) {
+                const alt = dist[u] + adj[u][v];
+                if (alt < dist[v]) {
+                    dist[v] = alt;
+                    prev[v] = u;
+                }
+            }
+        }
+
+        if (prev[1] === -1) return [target]; // Fallback if stuck
+
+        const path: Vector2[] = [];
+        let curr = 1;
+        while (curr !== 0) {
+            path.unshift(nodes[curr]);
+            curr = prev[curr];
+        }
+
+        return path;
+    }
+
     moveTowards(targetPos: Vector2, dt: number) {
         if (this.stats.speed <= 0) return;
         
-        let finalTargetPos = targetPos;
-
         if (!this.stats.isAir && !this.stats.jumpsRiver) {
-            const inRiverY = this.pos.y >= CONFIG.RIVER_Y_START && this.pos.y <= CONFIG.RIVER_Y_END;
-            const crossRiver = (this.pos.y >= CONFIG.RIVER_Y_END && targetPos.y <= CONFIG.RIVER_Y_START) || 
-                               (this.pos.y <= CONFIG.RIVER_Y_START && targetPos.y >= CONFIG.RIVER_Y_END);
-
-            if (crossRiver && !inRiverY) {
-                const bridgeY = this.pos.y >= CONFIG.RIVER_Y_END ? CONFIG.RIVER_Y_END : CONFIG.RIVER_Y_START;
-                const leftBridgeCenter = new Vector2(CONFIG.LEFT_BRIDGE_X + CONFIG.BRIDGE_WIDTH / 2, bridgeY);
-                const rightBridgeCenter = new Vector2(CONFIG.RIGHT_BRIDGE_X + CONFIG.BRIDGE_WIDTH / 2, bridgeY);
-                
-                const distViaLeft = this.pos.distanceTo(leftBridgeCenter) + leftBridgeCenter.distanceTo(targetPos);
-                const distViaRight = this.pos.distanceTo(rightBridgeCenter) + rightBridgeCenter.distanceTo(targetPos);
-                
-                finalTargetPos = distViaLeft < distViaRight ? leftBridgeCenter : rightBridgeCenter;
-                this.pathPoints = [finalTargetPos, targetPos];
-            } else {
-                this.pathPoints = [targetPos];
-            }
+            this.pathPoints = this.findPath(this.pos, targetPos);
         } else {
             this.pathPoints = [targetPos];
         }
 
-        let dir = finalTargetPos.sub(this.pos).normalize();
-        this.pos = this.pos.add(dir.mul(this.stats.speed * dt));
+        if (this.pathPoints.length > 0) {
+            let dir = this.pathPoints[0].sub(this.pos).normalize();
+            this.pos = this.pos.add(dir.mul(this.stats.speed * dt));
+        }
     }
 
     moveTowardsDefault(dt: number) {
