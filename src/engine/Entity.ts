@@ -310,12 +310,32 @@ export class Entity {
 
     moveTowards(targetPos: Vector2, dt: number) {
         if (this.stats.speed <= 0) return;
+        
+        let finalTargetPos = targetPos;
 
-        // Pathfinding: Unity-style "Always walk directly towards target"
-        // Let the physics engine handle the river and obstacle constraints
-        this.pathPoints = [targetPos];
+        if (!this.stats.isAir && !this.stats.jumpsRiver) {
+            const inRiverY = this.pos.y >= CONFIG.RIVER_Y_START && this.pos.y <= CONFIG.RIVER_Y_END;
+            const crossRiver = (this.pos.y >= CONFIG.RIVER_Y_END && targetPos.y <= CONFIG.RIVER_Y_START) || 
+                               (this.pos.y <= CONFIG.RIVER_Y_START && targetPos.y >= CONFIG.RIVER_Y_END);
 
-        let dir = targetPos.sub(this.pos).normalize();
+            if (crossRiver && !inRiverY) {
+                const bridgeY = this.pos.y >= CONFIG.RIVER_Y_END ? CONFIG.RIVER_Y_END : CONFIG.RIVER_Y_START;
+                const leftBridgeCenter = new Vector2(CONFIG.LEFT_BRIDGE_X + CONFIG.BRIDGE_WIDTH / 2, bridgeY);
+                const rightBridgeCenter = new Vector2(CONFIG.RIGHT_BRIDGE_X + CONFIG.BRIDGE_WIDTH / 2, bridgeY);
+                
+                const distViaLeft = this.pos.distanceTo(leftBridgeCenter) + leftBridgeCenter.distanceTo(targetPos);
+                const distViaRight = this.pos.distanceTo(rightBridgeCenter) + rightBridgeCenter.distanceTo(targetPos);
+                
+                finalTargetPos = distViaLeft < distViaRight ? leftBridgeCenter : rightBridgeCenter;
+                this.pathPoints = [finalTargetPos, targetPos];
+            } else {
+                this.pathPoints = [targetPos];
+            }
+        } else {
+            this.pathPoints = [targetPos];
+        }
+
+        let dir = finalTargetPos.sub(this.pos).normalize();
         this.pos = this.pos.add(dir.mul(this.stats.speed * dt));
     }
 
@@ -331,13 +351,9 @@ export class Entity {
                 }
             }
         }
-        if (bestTower) {
-            this.moveTowards(bestTower.pos, dt);
-        } else {
-            const dir = this.team === 'blue' ? -1 : 1;
-            this.pos.y += dir * this.stats.speed * dt;
-            this.pathPoints = [new Vector2(this.pos.x, this.pos.y + dir * 10)];
-        }
+        
+        const targetPos = bestTower ? bestTower.pos : new Vector2(this.pos.x, this.pos.y + (this.team === 'blue' ? -10 : 10));
+        this.moveTowards(targetPos, dt);
     }
 
     attack(target: Entity) {
