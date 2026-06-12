@@ -99,20 +99,25 @@ export class SCRenderer {
         const frame = clip.frames[frameIdx % clip.frames.length];
         if (!frame || !frame.elements) return;
 
-        for (let i = frame.elements.length - 1; i >= 0; i--) {
-            const el = frame.elements[i];
-            const localMatrix = new PIXI.Matrix();
-            if (el.matrix !== undefined && data.matrices[el.matrix]) {
-                localMatrix.fromArray(data.matrices[el.matrix]);
-            }
+        for (const el of frame.elements) {
+            const bind = clip.binds[el.bind];
+            if (!bind) continue;
             
-            const currentMatrix = localMatrix.clone().prepend(parentMatrix);
-            const ct = el.color_transform !== undefined ? el.color_transform : colorTrans;
+            const childId = bind.id;
 
-            if (data.movieclips[el.id]) {
-                this.renderMovieClip(data, textures, el.id, parentContainer, currentMatrix, ct, frameIdx);
-            } else if (data.shapes[el.id]) {
-                this.renderShape(data, textures, el.id, parentContainer, currentMatrix, ct);
+            const currentMatrix = new PIXI.Matrix();
+            if (el.matrix !== 65535 && data.matrices && data.matrices[el.matrix]) {
+                const m = data.matrices[el.matrix];
+                currentMatrix.set(m[0], m[1], m[2], m[3], m[4], m[5]);
+            }
+            currentMatrix.prepend(parentMatrix);
+
+            const ct = el.color !== 65535 ? el.color : colorTrans;
+
+            if (data.movieclips[childId]) {
+                this.renderMovieClip(data, textures, childId, parentContainer, currentMatrix, ct, frameIdx);
+            } else if (data.shapes[childId]) {
+                this.renderShape(data, textures, childId, parentContainer, currentMatrix, ct);
             }
         }
     }
