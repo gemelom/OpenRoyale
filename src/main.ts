@@ -468,7 +468,8 @@ function initRenderer() {
                     action,
                     aimAngle,
                     overrideFlipX,
-                    animProgress
+                    animProgress,
+                    frameIndex
                 );
                 
                 scaleMultiplier = 0.55;

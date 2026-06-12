@@ -98,7 +98,7 @@ export class SCRenderer {
         }
     }
 
-    static renderMovieClip(data: any, textures: PIXI.Texture[], clipId: number, parentContainer: PIXI.Container, parentMatrix: PIXI.Matrix, colorTrans: number | null, frameIdx: number, aimAngle: number = -1, bindName: string | null = null, animProgress: number = -1) {
+    static renderMovieClip(data: any, textures: PIXI.Texture[], clipId: number, parentContainer: PIXI.Container, parentMatrix: PIXI.Matrix, colorTrans: number | null, frameIdx: number, aimAngle: number = -1, bindName: string | null = null, animProgress: number = -1, globalFrameIndex: number = 0) {
         const clip = data.movieclips[clipId];
         if (!clip) return;
         
@@ -130,15 +130,18 @@ export class SCRenderer {
                 if (bind.name === 'turret' && aimAngle !== -1) {
                     childFrameIdx = aimAngle;
                     childAnimProgress = -1; // Turret uses absolute frame
+                } else if (bind.name === 'king_idle') {
+                    childFrameIdx = globalFrameIndex;
+                    childAnimProgress = -1; // Idle loops naturally
                 }
-                this.renderMovieClip(data, textures, childId, parentContainer, currentMatrix, ct, childFrameIdx, aimAngle, bind.name, childAnimProgress);
+                this.renderMovieClip(data, textures, childId, parentContainer, currentMatrix, ct, childFrameIdx, aimAngle, bind.name, childAnimProgress, globalFrameIndex);
             } else if (data.shapes[childId]) {
                 this.renderShape(data, textures, childId, parentContainer, currentMatrix, ct);
             }
         }
     }
 
-    static updateEntity(entityId: number, charId: string, action: string, dirSuffix: string, isRed: boolean, frameIndex: number, x: number, y: number, scale: number = 0.55, realAction: string = 'idle', aimAngle: number = -1, overrideFlipX: boolean | null = null, animProgress: number = -1) {
+    static updateEntity(entityId: number, charId: string, action: string, dirSuffix: string, isRed: boolean, frameIndex: number, x: number, y: number, scale: number = 0.55, realAction: string = 'idle', aimAngle: number = -1, overrideFlipX: boolean | null = null, animProgress: number = -1, globalFrameIndex: number = 0) {
         if (!this.app) return;
         
         let container = this.containers.get(entityId);
@@ -197,7 +200,7 @@ export class SCRenderer {
         containerScale.scale(scaleX, scale);
             
         if (mcId !== undefined) {
-            this.renderMovieClip(data, textures, mcId, container, containerScale, null, frameIndex, aimAngle, null, animProgress);
+            this.renderMovieClip(data, textures, mcId, container, containerScale, null, frameIndex, aimAngle, null, animProgress, globalFrameIndex);
         }
         
         // Render princess on tower
@@ -227,7 +230,7 @@ export class SCRenderer {
                     
                     princessMatrix.translate(0, -30); 
                     princessMatrix.prepend(containerScale);
-                    this.renderMovieClip(princessData, princessTextures, pExportId, container, princessMatrix, null, frameIndex, -1, null, animProgress);
+                    this.renderMovieClip(princessData, princessTextures, pExportId, container, princessMatrix, null, frameIndex, -1, null, animProgress, globalFrameIndex);
                 }
             }
         }
