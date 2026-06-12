@@ -11,5 +11,9 @@
   "devDependencies": {
     "typescript": "~6.0.2",
     "vite": "^8.0.12"
+  },
+  "dependencies": {
+    "earcut": "^3.0.2",
+    "pixi.js": "^8.19.0"
   }
 }
