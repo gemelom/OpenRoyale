@@ -210,10 +210,43 @@ function initRenderer() {
             if (p.target && p.target.pos) {
                 const dir = p.target.pos.sub(p.pos);
                 angle = Math.atan2(dir.y, dir.x) * 180 / Math.PI;
+                if (angle < 0) angle += 360;
             }
+
+            let arrowKey = p.team === 'red' ? 'projectile_arrow_basic_enemy' : 'projectile_arrow_basic';
+            let startHeight = -20;
+            let endHeight = -15; // Body center
             
-            const arrowKey = p.team === 'red' ? 'projectile_arrow_basic_enemy' : 'projectile_arrow_basic';
-            SCRenderer.updateProjectile(p.id, arrowKey, angle, p.pos.x * pxPerTileX, p.pos.y * pxPerTileY, 0.4);
+            if (p.sourceId === 'king_tower') {
+                arrowKey = 'projectile_cannonball_large';
+                startHeight = -25;
+                endHeight = -15;
+            } else if (p.sourceId === 'princess_tower' || p.sourceId === 'princess') {
+                arrowKey = p.team === 'red' ? 'projectile_arrow_basic_enemy' : 'projectile_arrow_basic';
+                startHeight = -40; // lowered slightly
+                endHeight = -15;
+            } else if (p.sourceId === 'musketeer' || p.sourceId === 'wizard') {
+                arrowKey = 'projectile_cannonball_small';
+                startHeight = -15;
+                endHeight = -15;
+            }
+
+            // Calculate progress for Z interpolation
+            const totalDist = p.startPos.distanceTo(p.target.pos);
+            const currentDist = p.startPos.distanceTo(p.pos);
+            let progress = totalDist > 0 ? currentDist / totalDist : 1.0;
+            progress = Math.max(0, Math.min(1, progress));
+            
+            // Parabolic arc for arrows
+            let arcOffset = 0;
+            if (arrowKey.includes('arrow')) {
+                arcOffset = Math.sin(progress * Math.PI) * -30;
+            }
+
+            const currentZOffset = startHeight + (endHeight - startHeight) * progress + arcOffset;
+            const scaleP = arrowKey.includes('arrow') ? 0.7 : 0.6; // Slightly larger projectiles
+
+            SCRenderer.updateProjectile(p.id, arrowKey, angle, p.pos.x * pxPerTileX, p.pos.y * pxPerTileY + currentZOffset, scaleP);
         }
 
         // Update Abilities UI
@@ -345,8 +378,11 @@ function initRenderer() {
 
             if (charFolder) {
                 let action = 'idle';
-                if (entity.attackCooldown > 0 || entity.isAttacking) action = 'attack';
-                else if (entity.isMoving) action = 'run';
+                if (entity.isAttacking || (entity.attackCooldown > 0 && entity.target)) {
+                    action = 'attack';
+                } else if (entity.isMoving) {
+                    action = 'run';
+                }
                 
                 const dir = entity.facingDirection || new Vector2(0, 1);
                 let angle_dy = dir.y;

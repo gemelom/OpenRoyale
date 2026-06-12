@@ -352,7 +352,7 @@ export const Cards: Record<string, EntityStats> = {
         hp: 2534,
         damage: 90,
         hitSpeed: 0.8,
-        loadTime: 0.1,
+        loadTime: 0.5,
         speed: 0,
         range: 7.5,
         sightRange: 7.5,
@@ -377,6 +377,6 @@ export const Cards: Record<string, EntityStats> = {
         mass: Infinity,
         isAir: false,
         targetType: 'all',
-        projectileSpeed: 10
+        projectileSpeed: 15
     }
 };

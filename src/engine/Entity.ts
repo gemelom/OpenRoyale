@@ -517,9 +517,15 @@ export class Entity {
 
     attack(target: Entity) {
         if (this.stats.projectileSpeed) {
+            let spawnPos = this.pos.clone();
+            if (this.stats.id === 'king_tower') {
+                const dir = target.pos.sub(this.pos).normalize();
+                spawnPos = spawnPos.add(dir.mul(1.2)); // Offset from center to cannon tip, pushed out further
+            }
             // Ranged attack, spawn projectile
             this.game.addProjectile(
-                this.pos.clone(),
+                this.stats.id,
+                spawnPos,
                 target,
                 this.stats.damage,
                 this.stats.projectileSpeed,

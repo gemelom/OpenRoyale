@@ -6,6 +6,8 @@ import { Cards } from './Cards';
 
 export interface Projectile {
     id: number;
+    sourceId: string;
+    startPos: Vector2;
     pos: Vector2;
     target: Entity;
     damage: number;
@@ -151,9 +153,11 @@ export class Game {
         }
     }
 
-    addProjectile(pos: Vector2, target: Entity, damage: number, speed: number, team: 'blue' | 'red', onHit?: () => void) {
+    addProjectile(sourceId: string, pos: Vector2, target: Entity, damage: number, speed: number, team: 'blue' | 'red', onHit?: () => void) {
         this.projectiles.push({
             id: this.nextProjectileId++,
+            sourceId,
+            startPos: pos.clone(),
             pos: pos.clone(),
             target,
             damage,

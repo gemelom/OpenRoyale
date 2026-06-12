@@ -22,7 +22,7 @@ export class SCRenderer {
         canvas.style.top = '0';
         canvas.style.left = '0';
         canvas.style.pointerEvents = 'none';
-        canvas.style.zIndex = '0';
+        canvas.style.zIndex = '3';
         containerEl.insertBefore(canvas, containerEl.firstChild);
     }
 
