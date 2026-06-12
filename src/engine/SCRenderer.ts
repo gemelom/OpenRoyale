@@ -182,9 +182,7 @@ export class SCRenderer {
         // Render princess on tower
         if (action === 'StarTower_base_red' || action === 'StarTower_base_blue') {
             const teamStr = isRed ? '_red' : '';
-            let pActionName = `princess_tower${teamStr}_idle1_1`;
-            
-            // Reconstruct dir suffix for princess if it's flipped
+            // Match the direction logic carefully
             let pDirSuffix = dirSuffix;
             if (['1', '4', '9'].includes(dirSuffix)) {
                 if (dirSuffix === '1') pDirSuffix = '3'; 
@@ -192,17 +190,14 @@ export class SCRenderer {
                 if (dirSuffix === '9') pDirSuffix = '7'; 
             }
             
-            if (realAction === 'attack') {
-                pActionName = `princess_tower${teamStr}_attack1_${pDirSuffix}`;
-            } else {
-                pActionName = `princess_tower${teamStr}_idle1_${pDirSuffix}`;
-            }
+            let pActionName = `princess_tower${teamStr}_${realAction === 'attack' ? 'attack' : 'idle'}1_${pDirSuffix}`;
 
             const princessData = this.dataCache['chr_princess'];
             const princessTextures = this.texturesCache['chr_princess'];
             if (princessData && princessTextures) {
-                const pExportId = princessData.exports[pActionName];
-                if (pExportId) {
+                const pKeys = Object.keys(princessData.exports);
+                if (pKeys.includes(pActionName)) {
+                    const pExportId = princessData.exports[pActionName];
                     const princessMatrix = new PIXI.Matrix();
                     princessMatrix.translate(0, -30); 
                     princessMatrix.prepend(containerScale);
