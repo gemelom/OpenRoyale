@@ -296,19 +296,6 @@ function initRenderer() {
                     div.className = 'tower';
                     div.style.width = `${entity.stats.radius * 2 * pxPerTileX}px`;
                     div.style.height = `${entity.stats.radius * 2 * pxPerTileY}px`;
-
-                    const hpText = document.createElement('div');
-                    hpText.className = 'tower-hp-text';
-                    hpText.style.position = 'absolute';
-                    hpText.style.top = '50%';
-                    hpText.style.left = '50%';
-                    hpText.style.transform = 'translate(-50%, -50%)';
-                    hpText.style.color = 'white';
-                    hpText.style.fontWeight = 'bold';
-                    hpText.style.fontSize = '12px';
-                    hpText.style.textShadow = '1px 1px 2px black';
-                    hpText.style.zIndex = '5';
-                    div.appendChild(hpText);
                 } else {
                     div.className = 'entity';
                     div.style.width = `${entity.stats.radius * 2 * pxPerTileX}px`;
@@ -325,13 +312,21 @@ function initRenderer() {
                 div.style.backgroundRepeat = 'no-repeat';
                 div.style.backgroundPosition = 'center';
                 
-                // HP Bar
-                const hpContainer = document.createElement('div');
-                hpContainer.className = 'hp-bar-container';
-                const hpBar = document.createElement('div');
-                hpBar.className = 'hp-bar';
-                hpContainer.appendChild(hpBar);
-                div.appendChild(hpContainer);
+                // HP Text (Numbers)
+                const hpText = document.createElement('div');
+                hpText.className = 'hp-text';
+                hpText.style.position = 'absolute';
+                hpText.style.top = '-20px'; // Render above the entity
+                hpText.style.left = '50%';
+                hpText.style.transform = 'translateX(-50%)';
+                hpText.style.color = entity.team === 'blue' ? '#4ade80' : '#f87171'; // Green for blue team, Red for red team
+                hpText.style.fontWeight = '900';
+                hpText.style.fontSize = '14px';
+                hpText.style.fontFamily = 'monospace';
+                hpText.style.textShadow = '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0px 2px 4px rgba(0,0,0,0.8)';
+                hpText.style.zIndex = '100'; // Ensure it's always on top
+                hpText.style.pointerEvents = 'none';
+                div.appendChild(hpText);
 
                 container.appendChild(div);
                 entityDivs.set(entity.id, div);
@@ -481,20 +476,12 @@ function initRenderer() {
                 div.style.height = `${entity.stats.radius * 2 * pxPerTileY}px`;
             }
 
-            // Transform matrix
-            const scaleX = flipX ? -scaleMultiplier : scaleMultiplier;
-            div.style.transform = `translate(-50%, -50%) scale(${scaleX}, ${scaleMultiplier})`;
+            // Transform matrix (remove scaling so text is not flipped or shrunk)
+            div.style.transform = `translate(-50%, -50%)`;
 
             // Update HP
-            const hpBar = div.querySelector('.hp-bar') as HTMLDivElement;
-            const hpPercent = Math.max(0, entity.hp / entity.stats.hp) * 100;
-            hpBar.style.width = `${hpPercent}%`;
-            hpBar.style.backgroundColor = entity.team === 'blue' ? '#0f0' : '#f00';
-            
-            if (entity.stats.type === 'tower') {
-                const hpText = div.querySelector('.tower-hp-text') as HTMLDivElement;
-                if (hpText) hpText.innerText = Math.ceil(entity.hp).toString();
-            }
+            const hpText = div.querySelector('.hp-text') as HTMLDivElement;
+            if (hpText) hpText.innerText = Math.ceil(entity.hp).toString();
             
             // Update Ability visual feedback
             if (entity.currentAbilityEffect === 'cloaking_cape') {
