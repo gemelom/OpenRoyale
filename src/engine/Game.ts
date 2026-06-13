@@ -45,6 +45,8 @@ export class Game {
         this.addEntity(Cards.king_tower, 'red', new Vector2(9, 3)); // Center back
         this.addEntity(Cards.princess_tower, 'red', new Vector2(3, 7)); // Left
         this.addEntity(Cards.princess_tower, 'red', new Vector2(15, 7)); // Right
+
+
     }
 
     addEntity(stats: EntityStats, team: Team, pos: Vector2): Entity {
@@ -108,8 +110,18 @@ export class Game {
             }
         }
 
-        // Remove dead entities
-        this.entities = this.entities.filter(e => e.hp > 0);
+        // Remove dead entities and spawn death effects
+        for (let i = this.entities.length - 1; i >= 0; i--) {
+            const e = this.entities[i];
+            if (e.hp <= 0) {
+                if (e.stats.name === 'Knight' || e.stats.name === 'Elite Knight') {
+                    this.spawnEffect('particle_sword', e.pos, 1.4);
+                } else if (e.stats.name !== 'Princess Tower' && e.stats.name !== 'King Tower') {
+                    this.spawnEffect('death_ground_elixir1', e.pos, 0.7);
+                }
+                this.entities.splice(i, 1);
+            }
+        }
 
         // Update effects
         this.effects = this.effects.filter(e => this.timeElapsed - e.startTime < e.duration);
@@ -119,6 +131,7 @@ export class Game {
     }
 
     spawnEffect(name: string, pos: Vector2, duration: number = 1.0) {
+        console.log('SPAWNING EFFECT', name, pos);
         this.effects.push({
             id: this.nextEffectId++,
             name,

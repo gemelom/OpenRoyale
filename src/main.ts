@@ -157,9 +157,13 @@ function initRenderer() {
     pathSvg.style.zIndex = '5';
     container.appendChild(pathSvg);
 
-    const entityDivs = new Map<number, HTMLDivElement & { imgElements?: HTMLImageElement[] }>();
-    const pathEls = new Map<number, SVGPolylineElement>();
+    (window as any).game = game;
+    (window as any).Vector2 = Vector2;
+    (window as any).SCRenderer = SCRenderer;
+    const entityDivs = new Map<number, HTMLDivElement>();
+    const effectDivs = new Set<number>();
     const projectileDivs = new Map<number, HTMLDivElement>();
+    const pathEls = new Map<number, SVGPolylineElement>();
     const abilityBtns = new Map<number, HTMLButtonElement>();
     const redAbilitiesContainer = document.getElementById('red-abilities')!;
     const blueAbilitiesContainer = document.getElementById('blue-abilities')!;
@@ -182,7 +186,6 @@ function initRenderer() {
         }
 
         // Render effects
-        let effectDivs = (window as any).effectDivs || new Set<number>();
         const currentEffectIds = new Set(game.effects.map(e => e.id));
         for (const effect of game.effects) {
             effectDivs.add(effect.id);
@@ -195,7 +198,6 @@ function initRenderer() {
                 effectDivs.delete(id);
             }
         }
-        (window as any).effectDivs = effectDivs;
 
         // Projectiles
         const currentProjIds = new Set(game.projectiles.map(p => p.id));
@@ -590,6 +592,9 @@ async function boot() {
     setupUI();
     initRenderer();
     game.start();
+
+    (window as any).game = game;
+    (window as any).Vector2 = Vector2;
 
     // Game loop
     setInterval(() => {
