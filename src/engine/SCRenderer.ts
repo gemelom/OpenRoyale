@@ -282,8 +282,11 @@ export class SCRenderer {
         }
     }
 
-    static updateEffect(effectId: number, exportName: string, x: number, y: number, scale: number = 0.55, frameIndex: number = 0) {
+    static updateEffect(effectId: number, exportName: string, x: number, y: number, scale: number = 0.55, frameIndex: number = 0, fileName: string = 'effects') {
         if (!this.app) return;
+        
+        const data = this.dataCache[fileName];
+        const textures = this.texturesCache[fileName];
         
         // Use a large negative ID to avoid colliding with entity and projectile IDs
         const eid = -effectId - 1000000;
@@ -296,8 +299,6 @@ export class SCRenderer {
 
         container.position.set(x, y);
 
-        const data = this.dataCache['effects'];
-        const textures = this.texturesCache['effects'];
         if (!data || !textures) return;
 
         container.removeChildren().forEach(c => c.destroy({ children: true }));

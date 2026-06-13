@@ -22,6 +22,7 @@ export interface VisualEffect {
     pos: Vector2;
     startTime: number;
     duration: number; // in seconds
+    fileName?: string;
 }
 
 export class Game {
@@ -116,7 +117,11 @@ export class Game {
             if (e.hp <= 0) {
                 if (e.stats.name === 'Knight' || e.stats.name === 'Elite Knight') {
                     this.spawnEffect('particle_sword', e.pos, 1.4);
-                } else if (e.stats.name !== 'Princess Tower' && e.stats.name !== 'King Tower') {
+                } else if (e.stats.name === 'Princess Tower') {
+                    this.spawnEffect('Tower_destroyed_ground1', e.pos, Infinity, 'building_tower');
+                } else if (e.stats.name === 'King Tower') {
+                    this.spawnEffect('Tower_destroyed_ground2', e.pos, Infinity, 'building_tower');
+                } else {
                     this.spawnEffect('death_ground_elixir1', e.pos, 0.7);
                 }
                 this.entities.splice(i, 1);
@@ -130,14 +135,15 @@ export class Game {
         this.constrainEntities();
     }
 
-    spawnEffect(name: string, pos: Vector2, duration: number = 1.0) {
+    spawnEffect(name: string, pos: Vector2, duration: number = 1.0, fileName?: string) {
         console.log('SPAWNING EFFECT', name, pos);
         this.effects.push({
             id: this.nextEffectId++,
             name,
             pos: pos.clone(),
             startTime: this.timeElapsed,
-            duration
+            duration,
+            fileName
         });
     }
 

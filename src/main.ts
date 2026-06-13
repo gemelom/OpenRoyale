@@ -8,10 +8,7 @@ import { SCRenderer } from './engine/SCRenderer';
 
 const game = new Game();
 
-const baseCards = [Cards.knight, Cards.archers, Cards.giant, Cards.pekka, Cards.musketeer, Cards.hog_rider, Cards.skeletons, Cards.elite_barbarians, Cards.battle_healer];
-const evoCards = [Cards.evo_knight, Cards.evo_skeletons];
-const championCards = [Cards.golden_knight, Cards.archer_queen];
-const eliteCards = [Cards.elite_knight, Cards.elite_musketeer, Cards.elite_giant];
+const baseCards = [Cards.knight, Cards.archers, Cards.giant, Cards.pekka, Cards.musketeer, Cards.hog_rider, Cards.skeletons, Cards.barbarians, Cards.minions, Cards.wizard, Cards.princess];
 
 (window as any).game = game;
 (window as any).Vector2 = Vector2;
@@ -84,10 +81,7 @@ function renderCards(containerId: string, team: 'blue' | 'red') {
     const container = document.getElementById(containerId)!;
     
     const categories = [
-        { title: 'Base Cards', cards: baseCards },
-        { title: 'Evolutions', cards: evoCards },
-        { title: 'Champions', cards: championCards },
-        { title: 'Elite Cards', cards: eliteCards }
+        { title: 'Base Cards', cards: baseCards }
     ];
 
     categories.forEach(category => {
@@ -190,7 +184,7 @@ function initRenderer() {
         for (const effect of game.effects) {
             effectDivs.add(effect.id);
             const globalFrameIndex = Math.floor((game.timeElapsed - effect.startTime) * 30);
-            SCRenderer.updateEffect(effect.id, effect.name, effect.pos.x * pxPerTileX, effect.pos.y * pxPerTileY, 0.55, globalFrameIndex);
+            SCRenderer.updateEffect(effect.id, effect.name, effect.pos.x * pxPerTileX, effect.pos.y * pxPerTileY, 0.55, globalFrameIndex, effect.fileName);
         }
         for (const id of effectDivs) {
             if (!currentEffectIds.has(id)) {
