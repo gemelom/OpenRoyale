@@ -181,6 +181,22 @@ function initRenderer() {
             }
         }
 
+        // Render effects
+        let effectDivs = (window as any).effectDivs || new Set<number>();
+        const currentEffectIds = new Set(game.effects.map(e => e.id));
+        for (const effect of game.effects) {
+            effectDivs.add(effect.id);
+            const globalFrameIndex = Math.floor((game.timeElapsed - effect.startTime) * 30);
+            SCRenderer.updateEffect(effect.id, effect.name, effect.pos.x * pxPerTileX, effect.pos.y * pxPerTileY, 0.55, globalFrameIndex);
+        }
+        for (const id of effectDivs) {
+            if (!currentEffectIds.has(id)) {
+                SCRenderer.removeEffect(id);
+                effectDivs.delete(id);
+            }
+        }
+        (window as any).effectDivs = effectDivs;
+
         // Projectiles
         const currentProjIds = new Set(game.projectiles.map(p => p.id));
         for (const [id, div] of projectileDivs.entries()) {

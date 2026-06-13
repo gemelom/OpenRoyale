@@ -282,6 +282,43 @@ export class SCRenderer {
         }
     }
 
+    static updateEffect(effectId: number, exportName: string, x: number, y: number, scale: number = 0.55, frameIndex: number = 0) {
+        if (!this.app) return;
+        
+        // Use a large negative ID to avoid colliding with entity and projectile IDs
+        const eid = -effectId - 1000000;
+        let container = this.containers.get(eid);
+        if (!container) {
+            container = new PIXI.Container();
+            this.app.stage.addChild(container);
+            this.containers.set(eid, container);
+        }
+
+        container.position.set(x, y);
+
+        const data = this.dataCache['effects'];
+        const textures = this.texturesCache['effects'];
+        if (!data || !textures) return;
+
+        container.removeChildren().forEach(c => c.destroy({ children: true }));
+
+        const mcId = data.exports[exportName];
+        if (mcId !== undefined) {
+            const containerScale = new PIXI.Matrix();
+            containerScale.scale(scale, scale);
+            this.renderMovieClip(data, textures, mcId, container, containerScale, null, frameIndex, -1, null, -1, frameIndex);
+        }
+    }
+
+    static removeEffect(effectId: number) {
+        const eid = -effectId - 1000000;
+        const container = this.containers.get(eid);
+        if (container) {
+            container.destroy({ children: true });
+            this.containers.delete(eid);
+        }
+    }
+
     // Legacy method for viewer
     static drawFrameDirect(ctx: CanvasRenderingContext2D, charId: string, exportName: string, frameIndex: number, flipX: boolean, scaleMultiplier: number = 0.55) {
         // Not implemented in WebGL version, use updateEntity instead.

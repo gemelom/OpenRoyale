@@ -16,11 +16,21 @@ export interface Projectile {
     onHit?: () => void;
 }
 
+export interface VisualEffect {
+    id: number;
+    name: string;
+    pos: Vector2;
+    startTime: number;
+    duration: number; // in seconds
+}
+
 export class Game {
     entities: Entity[] = [];
     projectiles: Projectile[] = [];
+    effects: VisualEffect[] = [];
     nextEntityId: number = 1;
     nextProjectileId: number = 1;
+    nextEffectId: number = 1;
     timeElapsed: number = 0;
 
     constructor() {}
@@ -101,8 +111,21 @@ export class Game {
         // Remove dead entities
         this.entities = this.entities.filter(e => e.hp > 0);
 
+        // Update effects
+        this.effects = this.effects.filter(e => this.timeElapsed - e.startTime < e.duration);
+
         this.resolveCollisions();
         this.constrainEntities();
+    }
+
+    spawnEffect(name: string, pos: Vector2, duration: number = 1.0) {
+        this.effects.push({
+            id: this.nextEffectId++,
+            name,
+            pos: pos.clone(),
+            startTime: this.timeElapsed,
+            duration
+        });
     }
 
     rivers = [
