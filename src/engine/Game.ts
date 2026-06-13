@@ -112,7 +112,7 @@ export class Game {
                         if (e.team !== p.team && e.hp > 0) {
                             // Only apply damage if the target type is compatible. Since Wizard/Princess/King Tower target 'all', they can hit anything.
                             // However, we should be safe and check if the entity can be targeted by the source. But for simplicity, we just damage all enemies in radius.
-                            const d = e.pos.dist(p.pos);
+                            const d = e.pos.distanceTo(p.pos);
                             if (d <= p.splashRadius + e.stats.radius) {
                                 e.takeDamage(p.damage);
                             }

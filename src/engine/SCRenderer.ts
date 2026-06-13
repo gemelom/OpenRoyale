@@ -45,7 +45,7 @@ export class SCRenderer {
         }
     }
 
-    static renderShape(data: any, textures: PIXI.Texture[], shapeId: number, container: PIXI.Container, transformMatrix: PIXI.Matrix, colorTransformId: number | null) {
+    static renderShape(data: any, textures: PIXI.Texture[], shapeId: number, container: PIXI.Container, transformMatrix: PIXI.Matrix, colorTransformId: number | null, blendMode: string | null = null) {
         const shapeData = data.shapes[shapeId];
         if (!shapeData) return;
 
@@ -94,6 +94,13 @@ export class SCRenderer {
             const mesh = new PIXI.Mesh({ geometry, texture: tex });
             mesh.tint = tint;
             mesh.alpha = alpha;
+            if (blendMode === 'add') {
+                mesh.blendMode = PIXI.BLEND_MODES.ADD;
+            } else if (blendMode === 'multiply') {
+                mesh.blendMode = PIXI.BLEND_MODES.MULTIPLY;
+            } else if (blendMode === 'screen') {
+                mesh.blendMode = PIXI.BLEND_MODES.SCREEN;
+            }
             container.addChild(mesh);
         }
     }
@@ -136,7 +143,7 @@ export class SCRenderer {
                 }
                 this.renderMovieClip(data, textures, childId, parentContainer, currentMatrix, ct, childFrameIdx, aimAngle, bind.name, childAnimProgress, globalFrameIndex);
             } else if (data.shapes[childId]) {
-                this.renderShape(data, textures, childId, parentContainer, currentMatrix, ct);
+                this.renderShape(data, textures, childId, parentContainer, currentMatrix, ct, bind.blend);
             }
         }
     }
