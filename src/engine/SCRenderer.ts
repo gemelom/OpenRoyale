@@ -94,12 +94,8 @@ export class SCRenderer {
             const mesh = new PIXI.Mesh({ geometry, texture: tex });
             mesh.tint = tint;
             mesh.alpha = alpha;
-            if (blendMode === 'add') {
-                mesh.blendMode = PIXI.BLEND_MODES.ADD;
-            } else if (blendMode === 'multiply') {
-                mesh.blendMode = PIXI.BLEND_MODES.MULTIPLY;
-            } else if (blendMode === 'screen') {
-                mesh.blendMode = PIXI.BLEND_MODES.SCREEN;
+            if (blendMode === 'add' || blendMode === 'multiply' || blendMode === 'screen') {
+                mesh.blendMode = blendMode as any;
             }
             container.addChild(mesh);
         }
