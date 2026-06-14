@@ -256,7 +256,7 @@ function initRenderer() {
             const scaleP = p.trajectory === 'parabola' ? 0.7 : 0.6;
             
             const globalFrameIndex = Math.floor(game.timeElapsed * 30);
-            SCRenderer.updateProjectile(p.id, arrowKey, angle, p.pos.x * pxPerTileX, p.pos.y * pxPerTileY + currentZOffset, scaleP, globalFrameIndex);
+            SCRenderer.updateProjectile(p.id, arrowKey, angle, p.pos.x * pxPerTileX, p.pos.y * pxPerTileY + currentZOffset, scaleP);
         }
 
         // Update Abilities UI

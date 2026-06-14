@@ -29,14 +29,14 @@ export class SCRenderer {
     static async loadCharacter(charId: string) {
         if (this.dataCache[charId]) return;
         try {
-            const res = await fetch(`/assets/sc/${charId}.json`);
-            if (!res.ok) return;
+            const res = await fetch(`assets/sc/${charId}.json`);
+            if (!res.ok) throw new Error(`Failed to load mapping for ${charId}`);
             const data = await res.json();
             this.dataCache[charId] = data;
 
             const textures: PIXI.Texture[] = [];
             for (const texPath of data.textures) {
-                const texture = await PIXI.Assets.load(`/assets/sc/${texPath}`);
+                const texture = await PIXI.Assets.load(`assets/sc/${texPath}`);
                 textures.push(texture);
             }
             this.texturesCache[charId] = textures;
