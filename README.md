@@ -46,3 +46,4 @@ npm run preview
 ## 联系方式
 如果您有任何问题或建议，欢迎通过以下邮箱联系我：
 * **Email**: [llinkerllc@gmail.com](mailto:llinkerllc@gmail.com)
+* **Wechat**: LambdaLinker
