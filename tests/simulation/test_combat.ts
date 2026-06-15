@@ -1,7 +1,7 @@
-import { Game } from './src/engine/Game';
-import { Cards } from './src/engine/Cards';
-import { Vector2 } from './src/engine/Vector2';
-import { CONFIG } from './src/engine/config';
+import { Game } from '../../src/engine/Game';
+import { Cards } from '../../src/engine/Cards';
+import { Vector2 } from '../../src/engine/Vector2';
+import { CONFIG } from '../../src/engine/config';
 
 const game = new Game();
 // Clear towers for clean test

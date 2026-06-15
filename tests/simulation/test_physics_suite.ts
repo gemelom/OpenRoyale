@@ -1,6 +1,6 @@
-import { Game } from './src/engine/Game';
-import { Cards } from './src/engine/Cards';
-import { Vector2 } from './src/engine/Vector2';
+import { Game } from '../../src/engine/Game';
+import { Cards } from '../../src/engine/Cards';
+import { Vector2 } from '../../src/engine/Vector2';
 
 function runTest(testName: string, testFn: () => boolean) {
     console.log(`\n--- Running Test: ${testName} ---`);

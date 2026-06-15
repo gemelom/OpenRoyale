@@ -1,6 +1,6 @@
-import { Game } from './src/engine/Game';
-import { Cards } from './src/engine/Cards';
-import { Vector2 } from './src/engine/Vector2';
+import { Game } from '../../src/engine/Game';
+import { Cards } from '../../src/engine/Cards';
+import { Vector2 } from '../../src/engine/Vector2';
 
 const game = new Game();
 game.start();

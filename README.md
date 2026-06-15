@@ -26,7 +26,7 @@ npm run dev
 ```
 或通过以下命令强制指定主机和端口启动：
 ```bash
-npx vite --host 0.0.0.0 --port 5174 --force
+npm run dev:5174
 ```
 
 ### 3. 项目打包与构建
@@ -39,6 +39,19 @@ npm run build
 ```bash
 npm run preview
 ```
+
+### 4. 项目结构
+
+主要目录：
+
+- `src/`：浏览器运行时代码，`src/engine/` 放核心仿真、卡牌数据、实体逻辑和 Pixi 渲染器。
+- `tests/simulation/`：无头 TypeScript 仿真脚本。
+- `tests/browser/`：Playwright/Puppeteer 浏览器调试和截图脚本。
+- `tests/assets/`：资源结构检查脚本。
+- `tools/`：资源分析、生成和一次性修补工具。
+- `artifacts/screenshots/`：本地截图和视觉调试产物。
+
+更详细的结构说明见 `docs/PROJECT_STRUCTURE.md`。
 
 ## to-do list
 

@@ -22,7 +22,7 @@ async def main():
         # Wait 4 seconds for the Knight to walk to the bridge
         await page.wait_for_timeout(4000)
         
-        await page.screenshot(path='test_game3.png')
+        await page.screenshot(path='artifacts/screenshots/test_game3.png')
         await browser.close()
 
 asyncio.run(main())

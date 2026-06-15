@@ -9,12 +9,15 @@ async def main():
         await page.goto('http://localhost:5177')
         await page.wait_for_timeout(3000)
         
-        await page.mouse.click(500, 500) # Maybe spawn something?
-        await page.wait_for_timeout(1000)
-        await page.mouse.click(300, 300)
+        # Click Knight (Red Team) -> let's use exact text selector
+        await page.click("text=Knight", strict=False)
+        await page.wait_for_timeout(500)
+        
+        # Click on map
+        await page.mouse.click(400, 200)
         await page.wait_for_timeout(1000)
         
-        await page.screenshot(path="test_scr.png")
+        await page.screenshot(path="artifacts/screenshots/test_knight_real.png")
         await browser.close()
 
 asyncio.run(main())

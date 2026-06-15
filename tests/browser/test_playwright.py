@@ -7,7 +7,7 @@ async def main():
         page = await browser.new_page()
         await page.goto('http://localhost:5177')
         await page.wait_for_timeout(3000) # wait for assets to load and game to start
-        await page.screenshot(path='test_game.png')
+        await page.screenshot(path='artifacts/screenshots/test_game.png')
         await browser.close()
 
 asyncio.run(main())

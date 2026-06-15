@@ -27,11 +27,11 @@ async def main():
         
         # Wait 2 seconds for Knight to attack King Tower and trigger activation
         await page.wait_for_timeout(2000)
-        await page.screenshot(path='test_game_activating.png')
+        await page.screenshot(path='artifacts/screenshots/test_game_activating.png')
         
         # Wait 8.5 more seconds for King to fully activate (total 10.5 seconds, activating takes 8 seconds)
         await page.wait_for_timeout(8500)
-        await page.screenshot(path='test_game_awake.png')
+        await page.screenshot(path='artifacts/screenshots/test_game_awake.png')
         
         await browser.close()
 

@@ -17,7 +17,7 @@ async def main():
         """)
         await page.wait_for_timeout(1000)
         
-        await page.screenshot(path="test_spawn.png")
+        await page.screenshot(path="artifacts/screenshots/test_spawn.png")
         await browser.close()
 
 asyncio.run(main())

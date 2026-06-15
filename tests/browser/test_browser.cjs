@@ -9,7 +9,7 @@ const puppeteer = require('puppeteer');
     await page.goto('http://localhost:5174');
     await new Promise(r => setTimeout(r, 5000));
     
-    await page.screenshot({ path: '/home/ClashRoyale/screenshot.png' });
+    await page.screenshot({ path: 'artifacts/screenshots/screenshot.png' });
     console.log("Screenshot saved!");
     
     await browser.close();

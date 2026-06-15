@@ -23,7 +23,7 @@ async def main():
         await page.mouse.click(600, 600)
         await page.wait_for_timeout(2000)
         
-        await page.screenshot(path="test_knight.png")
+        await page.screenshot(path="artifacts/screenshots/test_knight.png")
         await browser.close()
 
 asyncio.run(main())

@@ -1,5 +1,5 @@
-import { Game } from './engine/Game';
-import { Vector2 } from './engine/Vector2';
+import { Game } from '../../src/engine/Game';
+import { Vector2 } from '../../src/engine/Vector2';
 
 console.log("Starting Headless Simulation: Elite Abilities");
 
