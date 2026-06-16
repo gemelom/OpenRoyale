@@ -60,6 +60,7 @@ type AoeCircle = {
 
 type RenderState = {
     time?: number;
+    elixir?: Partial<Record<Team, number>>;
     arena?: {
         width: number;
         height: number;
@@ -398,9 +399,27 @@ function updateEffects(state: RenderState, frameIndex: number) {
     }
 }
 
+function renderElixirRow(team: Team, value: number) {
+    const clamped = Math.min(10, Math.max(0, value));
+    const segments = Array.from({ length: 10 }, (_, index) => {
+        const fill = Math.min(1, Math.max(0, clamped - index));
+        return `<span class="elixir-segment"><span style="width: ${fill * 100}%"></span></span>`;
+    }).join('');
+
+    return `
+        <div class="elixir-row ${team}">
+            <span>${team === 'blue' ? 'Blue' : 'Red'}</span>
+            <div class="elixir-track">${segments}</div>
+            <strong>${clamped.toFixed(1)}</strong>
+        </div>
+    `;
+}
+
 function renderState(state: RenderState) {
     const entities = state.entities || [];
     const projectiles = state.projectiles || [];
+    const blueElixir = state.elixir?.blue ?? 0;
+    const redElixir = state.elixir?.red ?? 0;
     const currentEntityIds = new Set(entities.map((entity) => entity.id));
     const currentProjectileIds = new Set(projectiles.map((projectile) => projectile.id));
     const frameIndex = Math.floor(performance.now() / 1000 * 30);
@@ -432,6 +451,10 @@ function renderState(state: RenderState) {
     statusEl.innerHTML = `
         <div class="metric"><span>Bridge</span><span>${stateUrl ? 'connected' : 'missing'}</span></div>
         <div class="metric"><span>Time</span><span>${(state.time || 0).toFixed(2)}s</span></div>
+        <div class="elixir-panel">
+            ${renderElixirRow('red', redElixir)}
+            ${renderElixirRow('blue', blueElixir)}
+        </div>
         <div class="metric"><span>Entities</span><span>${entities.length}</span></div>
         <div class="metric"><span>Projectiles</span><span>${projectiles.length}</span></div>
     `;

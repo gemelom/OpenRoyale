@@ -111,6 +111,7 @@ def test_env_human_render_mode_publishes_state(monkeypatch):
             state = json.loads(response.read().decode("utf-8"))
 
         assert state["time"] == 0.0
+        assert state["elixir"] == {"blue": 5.0, "red": 5.0}
         assert len(state["entities"]) == 6
         assert state["entities"][0]["facing_direction"] == {"x": 0, "y": 1}
     finally:

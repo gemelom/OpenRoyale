@@ -50,6 +50,57 @@
         border-bottom: 1px solid #2d342d;
       }
 
+      .elixir-panel {
+        display: grid;
+        gap: 8px;
+        padding: 12px 0;
+        border-bottom: 1px solid #2d342d;
+      }
+
+      .elixir-row {
+        display: grid;
+        grid-template-columns: 34px 1fr 34px;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .elixir-row span,
+      .elixir-row strong {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px;
+      }
+
+      .elixir-row strong {
+        text-align: right;
+      }
+
+      .elixir-track {
+        display: grid;
+        grid-template-columns: repeat(10, 1fr);
+        gap: 2px;
+        height: 12px;
+      }
+
+      .elixir-segment {
+        overflow: hidden;
+        background: #282d2a;
+        border: 1px solid #3a4239;
+      }
+
+      .elixir-segment span {
+        display: block;
+        height: 100%;
+        transition: width 80ms linear;
+      }
+
+      .elixir-row.blue .elixir-segment span {
+        background: #3b82f6;
+      }
+
+      .elixir-row.red .elixir-segment span {
+        background: #ef4444;
+      }
+
       .entity,
       .tower {
         position: absolute;

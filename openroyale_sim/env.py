@@ -242,6 +242,7 @@ class OpenRoyaleEnv:
     def _render_snapshot(self) -> dict[str, Any]:
         return {
             "time": self.game.time_elapsed,
+            "elixir": dict(self.elixir),
             "arena": {
                 "width": arena_config.ARENA_WIDTH,
                 "height": arena_config.ARENA_HEIGHT,
