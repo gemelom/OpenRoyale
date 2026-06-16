@@ -1,3 +1,8 @@
+import json
+from urllib.request import urlopen
+
+import pytest
+
 from openroyale_sim import CARDS, Game, OpenRoyaleEnv, Vector2
 
 
@@ -89,3 +94,29 @@ def test_destroying_enemy_king_tower_ends_game_with_winner():
     assert terminated is True
     assert truncated is False
     assert info["winner"] == "blue"
+
+
+def test_env_human_render_mode_publishes_state(monkeypatch):
+    opened_urls = []
+    monkeypatch.setattr("webbrowser.open", opened_urls.append)
+    env = OpenRoyaleEnv(render_mode="human")
+    try:
+        env.reset(seed=1)
+        assert opened_urls
+        assert "sim.html" in opened_urls[0]
+
+        bridge = env._human_bridge
+        assert bridge is not None
+        with urlopen(bridge.endpoint, timeout=1) as response:
+            state = json.loads(response.read().decode("utf-8"))
+
+        assert state["time"] == 0.0
+        assert len(state["entities"]) == 6
+        assert state["entities"][0]["facing_direction"] == {"x": 0, "y": 1}
+    finally:
+        env.close()
+
+
+def test_env_rejects_unknown_render_mode():
+    with pytest.raises(ValueError, match="render_mode"):
+        OpenRoyaleEnv(render_mode="rgb_array")

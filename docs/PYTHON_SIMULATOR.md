@@ -80,6 +80,39 @@ The episode terminates when either king tower is destroyed and truncates at
 `max_time`. `info["winner"]` is `"blue"` or `"red"` when a king tower is
 destroyed.
 
+## Human Rendering
+
+`OpenRoyaleEnv(render_mode="human")` connects the Python simulator to the
+browser Pixi renderer. It starts a local read-only JSON bridge and opens the
+Vite viewer at `http://localhost:5174/OpenRoyale/sim.html`.
+
+```python
+from openroyale_sim import OpenRoyaleEnv
+
+env = OpenRoyaleEnv(render_mode="human", frame_skip=4)
+obs, info = env.reset(seed=1)
+
+for _ in range(300):
+    env.step({"type": "noop"})
+
+env.close()
+```
+
+The frontend dev server is expected to be running on port 5174. In this
+workspace it is managed by `clash-royale-dev.service`.
+
+You can also run the bundled demo entry point:
+
+```bash
+uv run python -m openroyale_sim
+```
+
+For a quick non-visual smoke test:
+
+```bash
+uv run python -m openroyale_sim --headless --seconds 5
+```
+
 ## Current Scope
 
 The Python card table mirrors the cards currently present in

@@ -1,7 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from http import HTTPStatus
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import json
+import threading
 from typing import Any, Iterable
+from urllib.parse import urlencode
+import webbrowser
 
 from . import config as arena_config
 from .cards import CARDS, Team
@@ -13,6 +19,7 @@ MAX_ELIXIR = 10.0
 ELIXIR_REGEN_SECONDS = 2.8
 LANE_WIDTH = arena_config.ARENA_WIDTH / 2
 ADVANCED_DEPLOY_DEPTH = 5.0
+DEFAULT_HUMAN_RENDERER_URL = "http://localhost:5174/OpenRoyale/sim.html"
 
 
 @dataclass
@@ -21,6 +28,83 @@ class EnvConfig:
     tick_rate: int = 60
     frame_skip: int = 1
     start_with_towers: bool = True
+
+
+class _HumanRenderBridge:
+    def __init__(self, renderer_url: str = DEFAULT_HUMAN_RENDERER_URL) -> None:
+        self.renderer_url = renderer_url
+        self._state: dict[str, Any] = {}
+        self._lock = threading.Lock()
+        self._server: ThreadingHTTPServer | None = None
+        self._thread: threading.Thread | None = None
+        self._opened = False
+
+    @property
+    def endpoint(self) -> str:
+        if not self._server:
+            self.start()
+        assert self._server is not None
+        host, port = self._server.server_address[:2]
+        return f"http://{host}:{port}/state"
+
+    def start(self) -> None:
+        if self._server:
+            return
+
+        bridge = self
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self) -> None:
+                if self.path.split("?", 1)[0] == "/state":
+                    with bridge._lock:
+                        payload = json.dumps(bridge._state).encode("utf-8")
+                    self.send_response(HTTPStatus.OK)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Access-Control-Allow-Origin", "*")
+                    self.send_header("Cache-Control", "no-store")
+                    self.send_header("Content-Length", str(len(payload)))
+                    self.end_headers()
+                    self.wfile.write(payload)
+                    return
+                if self.path.split("?", 1)[0] == "/health":
+                    payload = b"ok"
+                    self.send_response(HTTPStatus.OK)
+                    self.send_header("Content-Type", "text/plain")
+                    self.send_header("Access-Control-Allow-Origin", "*")
+                    self.send_header("Content-Length", str(len(payload)))
+                    self.end_headers()
+                    self.wfile.write(payload)
+                    return
+                self.send_error(HTTPStatus.NOT_FOUND)
+
+            def log_message(self, format: str, *args: Any) -> None:
+                return
+
+        self._server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
+        self._thread.start()
+
+    def show(self) -> None:
+        if self._opened:
+            return
+        self.start()
+        url = f"{self.renderer_url}?{urlencode({'state': self.endpoint})}"
+        webbrowser.open(url)
+        self._opened = True
+
+    def publish(self, state: dict[str, Any]) -> None:
+        self.start()
+        with self._lock:
+            self._state = state
+
+    def close(self) -> None:
+        if self._server:
+            self._server.shutdown()
+            self._server.server_close()
+        if self._thread:
+            self._thread.join(timeout=1)
+        self._server = None
+        self._thread = None
 
 
 class OpenRoyaleEnv:
@@ -33,7 +117,7 @@ class OpenRoyaleEnv:
     ``{"type": "ability", "entity_id": 12}``
     """
 
-    metadata = {"render_modes": []}
+    metadata = {"render_modes": ["human"]}
 
     def __init__(
         self,
@@ -42,10 +126,16 @@ class OpenRoyaleEnv:
         frame_skip: int = 1,
         start_with_towers: bool = True,
         cards=None,
+        render_mode: str | None = None,
+        human_renderer_url: str = DEFAULT_HUMAN_RENDERER_URL,
     ) -> None:
+        if render_mode not in (None, "human"):
+            raise ValueError("render_mode must be None or 'human'")
         self.config = EnvConfig(max_time=max_time, tick_rate=tick_rate, frame_skip=frame_skip, start_with_towers=start_with_towers)
         self.cards = cards or CARDS
         self.game = Game(cards=self.cards)
+        self.render_mode = render_mode
+        self._human_bridge = _HumanRenderBridge(human_renderer_url) if render_mode == "human" else None
         self._previous_tower_hp = {"blue": 0.0, "red": 0.0}
         self.elixir = {"blue": STARTING_ELIXIR, "red": STARTING_ELIXIR}
 
@@ -56,7 +146,10 @@ class OpenRoyaleEnv:
             self.game.start()
         self._previous_tower_hp = self._tower_hp()
         self.elixir = {"blue": STARTING_ELIXIR, "red": STARTING_ELIXIR}
-        return self.observe(), {"seed": seed}
+        observation = self.observe()
+        if self.render_mode == "human":
+            self.render()
+        return observation, {"seed": seed}
 
     def step(self, actions: dict[str, Any] | Iterable[dict[str, Any]] | None = None) -> tuple[dict[str, Any], float, bool, bool, dict[str, Any]]:
         if actions is None:
@@ -91,7 +184,22 @@ class OpenRoyaleEnv:
             "elixir": dict(self.elixir),
             "winner": winner,
         }
-        return self.observe(), reward, terminated, truncated, info
+        observation = self.observe()
+        if self.render_mode == "human":
+            self.render()
+        return observation, reward, terminated, truncated, info
+
+    def render(self) -> None:
+        if self.render_mode != "human":
+            return None
+        assert self._human_bridge is not None
+        self._human_bridge.publish(self._render_snapshot())
+        self._human_bridge.show()
+        return None
+
+    def close(self) -> None:
+        if self._human_bridge:
+            self._human_bridge.close()
 
     def observe(self) -> dict[str, Any]:
         return {
@@ -128,6 +236,88 @@ class OpenRoyaleEnv:
                     "damage": projectile.damage,
                 }
                 for projectile in self.game.projectiles
+            ],
+        }
+
+    def _render_snapshot(self) -> dict[str, Any]:
+        return {
+            "time": self.game.time_elapsed,
+            "arena": {
+                "width": arena_config.ARENA_WIDTH,
+                "height": arena_config.ARENA_HEIGHT,
+                "river_y_start": arena_config.RIVER_Y_START,
+                "river_y_end": arena_config.RIVER_Y_END,
+                "left_bridge_x": arena_config.LEFT_BRIDGE_X,
+                "right_bridge_x": arena_config.RIGHT_BRIDGE_X,
+                "bridge_width": arena_config.BRIDGE_WIDTH,
+            },
+            "entities": [
+                {
+                    "id": entity.id,
+                    "card": entity.stats.id,
+                    "name": entity.stats.name,
+                    "team": entity.team,
+                    "type": entity.stats.type,
+                    "x": entity.pos.x,
+                    "y": entity.pos.y,
+                    "hp": entity.hp,
+                    "max_hp": entity.stats.hp,
+                    "radius": entity.stats.radius,
+                    "target_id": entity.target.id if entity.target else None,
+                    "is_moving": entity.is_moving,
+                    "is_attacking": entity.is_attacking,
+                    "attack_cooldown": entity.attack_cooldown,
+                    "action_frame_timer": entity.action_frame_timer,
+                    "hit_speed": entity.stats.hit_speed,
+                    "load_time": entity.stats.load_time,
+                    "facing_direction": {"x": entity.facing_direction.x, "y": entity.facing_direction.y},
+                    "activation_state": entity.activation_state,
+                    "activation_timer": entity.activation_timer,
+                    "ability_cooldown": entity.ability_cooldown,
+                    "effect": entity.current_ability_effect,
+                    "path_points": [{"x": point.x, "y": point.y} for point in entity.path_points],
+                }
+                for entity in self.game.entities
+            ],
+            "projectiles": [
+                {
+                    "id": projectile.id,
+                    "source": projectile.source_id,
+                    "team": projectile.team,
+                    "x": projectile.pos.x,
+                    "y": projectile.pos.y,
+                    "start_x": projectile.start_pos.x,
+                    "start_y": projectile.start_pos.y,
+                    "target_x": projectile.target.pos.x,
+                    "target_y": projectile.target.pos.y,
+                    "target_id": projectile.target.id,
+                    "asset": projectile.asset,
+                    "trajectory": projectile.trajectory,
+                }
+                for projectile in self.game.projectiles
+            ],
+            "effects": [
+                {
+                    "id": effect.id,
+                    "name": effect.name,
+                    "x": effect.pos.x,
+                    "y": effect.pos.y,
+                    "start_time": effect.start_time,
+                    "duration": effect.duration,
+                    "file_name": effect.file_name,
+                }
+                for effect in self.game.effects
+            ],
+            "aoe_circles": [
+                {
+                    "id": circle.id,
+                    "x": circle.pos.x,
+                    "y": circle.pos.y,
+                    "radius": circle.radius,
+                    "start_time": circle.start_time,
+                    "duration": circle.duration,
+                }
+                for circle in self.game.aoe_circles
             ],
         }
 
