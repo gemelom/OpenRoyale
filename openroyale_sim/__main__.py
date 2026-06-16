@@ -23,7 +23,7 @@ def scripted_actions(previous_elapsed: float, elapsed: float) -> list[dict[str, 
         (6.0, {"type": "deploy", "card": "giant", "team": "blue", "x": 3, "y": 24}),
         (9.0, {"type": "deploy", "card": "musketeer", "team": "red", "x": 15, "y": 8}),
         (14.0, {"type": "deploy", "card": "hog_rider", "team": "blue", "x": 15, "y": 24}),
-        (18.0, {"type": "deploy", "card": "wizard", "team": "red", "x": 3, "y": 8}),
+        (18.0, {"type": "deploy", "card": "hog_rider", "team": "red", "x": 3, "y": 8}),
     ]
     for at, action in schedule:
         if previous_elapsed < at <= elapsed:

@@ -49,6 +49,11 @@ the same environment tick.
 
 Deploy actions are validated by match rules:
 
+- Each player has an 8-card deck and 4 active hand slots.
+- A deploy action must use a card from that player's current hand.
+- Successfully deployed cards move to the back of that player's deck cycle,
+  and the next card fills the used hand slot. Invalid deploys do not cycle the
+  hand.
 - Each player starts with 5 elixir.
 - Elixir is capped at 10.
 - Elixir regenerates at 1 point every 2.8 seconds.
@@ -66,6 +71,8 @@ Observations are plain dictionaries with:
 
 - `time`
 - `elixir`: current elixir for both players
+- `hands`: current 4-card hand for both players
+- `decks`: configured 8-card deck for both players
 - `entities`: id, card, team, type, position, hp, target, movement/attack state,
   ability cooldown, current effect, and elixir cost
 - `projectiles`: id, source, team, position, target, and damage

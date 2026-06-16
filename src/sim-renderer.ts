@@ -58,9 +58,17 @@ type AoeCircle = {
     duration: number;
 };
 
+type RenderCard = {
+    id: string;
+    name: string;
+    elixir_cost: number;
+};
+
 type RenderState = {
     time?: number;
     elixir?: Partial<Record<Team, number>>;
+    hands?: Partial<Record<Team, RenderCard[]>>;
+    decks?: Partial<Record<Team, RenderCard[]>>;
     arena?: {
         width: number;
         height: number;
@@ -99,6 +107,24 @@ const effectIds = new Set<number>();
 const aoeDivs = new Map<number, HTMLDivElement>();
 const pathEls = new Map<number, SVGPolylineElement>();
 const pathSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+const preloadedCardImages = new Set<string>();
+const DEFAULT_CARD_IDS = ['knight', 'archers', 'giant', 'pekka', 'musketeer', 'hog_rider', 'skeletons', 'wizard'];
+
+type HandRefs = {
+    root: HTMLDivElement;
+    slots: HTMLDivElement[];
+};
+
+type StatusRefs = {
+    bridge: HTMLSpanElement;
+    time: HTMLSpanElement;
+    entityCount: HTMLSpanElement;
+    projectileCount: HTMLSpanElement;
+    elixir: Record<Team, { value: HTMLElement; fills: HTMLSpanElement[] }>;
+    hands: Record<Team, HandRefs>;
+};
+
+const statusRefs = createStatusShell();
 
 function addArenaDecor() {
     const river = document.createElement('div');
@@ -150,6 +176,120 @@ async function loadMappings() {
         'effects',
     ];
     await Promise.all(chars.map((charId) => SCRenderer.loadCharacter(charId)));
+}
+
+function cardImageSrc(cardId: string) {
+    return `${import.meta.env.BASE_URL}assets/cards/${cardId.replaceAll('_', '-')}.png`;
+}
+
+function preloadCardImages(cards: RenderCard[]) {
+    preloadCardIds(cards.map((card) => card.id));
+}
+
+function preloadCardIds(cardIds: string[]) {
+    for (const cardId of cardIds) {
+        const src = cardImageSrc(cardId);
+        if (preloadedCardImages.has(src)) continue;
+        const image = new Image();
+        image.src = src;
+        preloadedCardImages.add(src);
+    }
+}
+
+function createMetric(label: string) {
+    const row = document.createElement('div');
+    row.className = 'metric';
+    const labelEl = document.createElement('span');
+    const valueEl = document.createElement('span');
+    labelEl.textContent = label;
+    row.append(labelEl, valueEl);
+    return { row, valueEl };
+}
+
+function createElixirRow(team: Team) {
+    const row = document.createElement('div');
+    row.className = `elixir-row ${team}`;
+
+    const label = document.createElement('span');
+    label.textContent = team === 'blue' ? 'Blue' : 'Red';
+
+    const track = document.createElement('div');
+    track.className = 'elixir-track';
+    const fills = Array.from({ length: 10 }, () => {
+        const segment = document.createElement('span');
+        segment.className = 'elixir-segment';
+        const fill = document.createElement('span');
+        segment.appendChild(fill);
+        track.appendChild(segment);
+        return fill;
+    });
+
+    const value = document.createElement('strong');
+    row.append(label, track, value);
+    return { row, value, fills };
+}
+
+function createHandPanel(team: Team): HandRefs {
+    const root = document.createElement('div');
+    root.className = `hand-panel ${team}`;
+
+    const title = document.createElement('div');
+    title.className = 'hand-title';
+    title.textContent = team === 'blue' ? 'Blue Hand' : 'Red Hand';
+
+    const slotGrid = document.createElement('div');
+    slotGrid.className = 'card-slots';
+    const slots = Array.from({ length: 4 }, () => {
+        const slot = document.createElement('div');
+        slot.className = 'card-slot empty';
+        slotGrid.appendChild(slot);
+        return slot;
+    });
+
+    root.append(title, slotGrid);
+    return { root, slots };
+}
+
+function createStatusShell(): StatusRefs {
+    statusEl.replaceChildren();
+
+    const bridgeMetric = createMetric('Bridge');
+    const timeMetric = createMetric('Time');
+    const entityMetric = createMetric('Entities');
+    const projectileMetric = createMetric('Projectiles');
+    const redHand = createHandPanel('red');
+    const blueHand = createHandPanel('blue');
+
+    const elixirPanel = document.createElement('div');
+    elixirPanel.className = 'elixir-panel';
+    const redElixir = createElixirRow('red');
+    const blueElixir = createElixirRow('blue');
+    elixirPanel.append(redElixir.row, blueElixir.row);
+
+    statusEl.append(
+        bridgeMetric.row,
+        timeMetric.row,
+        redHand.root,
+        elixirPanel,
+        blueHand.root,
+        entityMetric.row,
+        projectileMetric.row,
+    );
+
+    return {
+        bridge: bridgeMetric.valueEl,
+        time: timeMetric.valueEl,
+        entityCount: entityMetric.valueEl,
+        projectileCount: projectileMetric.valueEl,
+        elixir: {
+            red: { value: redElixir.value, fills: redElixir.fills },
+            blue: { value: blueElixir.value, fills: blueElixir.fills },
+        },
+        hands: {
+            red: redHand,
+            blue: blueHand,
+        },
+    };
 }
 
 function charPrefix(entity: RenderEntity) {
@@ -399,20 +539,40 @@ function updateEffects(state: RenderState, frameIndex: number) {
     }
 }
 
-function renderElixirRow(team: Team, value: number) {
+function updateElixirRow(team: Team, value: number) {
     const clamped = Math.min(10, Math.max(0, value));
-    const segments = Array.from({ length: 10 }, (_, index) => {
+    statusRefs.elixir[team].value.textContent = clamped.toFixed(1);
+    statusRefs.elixir[team].fills.forEach((fillEl, index) => {
         const fill = Math.min(1, Math.max(0, clamped - index));
-        return `<span class="elixir-segment"><span style="width: ${fill * 100}%"></span></span>`;
-    }).join('');
+        fillEl.style.width = `${fill * 100}%`;
+    });
+}
 
-    return `
-        <div class="elixir-row ${team}">
-            <span>${team === 'blue' ? 'Blue' : 'Red'}</span>
-            <div class="elixir-track">${segments}</div>
-            <strong>${clamped.toFixed(1)}</strong>
-        </div>
-    `;
+function updateHand(team: Team, cards: RenderCard[]) {
+    statusRefs.hands[team].slots.forEach((slot, index) => {
+        const card = cards[index];
+        if (!card) {
+            if (slot.dataset.cardId !== '') {
+                slot.dataset.cardId = '';
+                slot.className = 'card-slot empty';
+                slot.replaceChildren();
+            }
+            return;
+        }
+
+        if (slot.dataset.cardId === card.id) return;
+
+        const image = document.createElement('img');
+        image.src = cardImageSrc(card.id);
+        image.alt = card.name;
+
+        const cost = document.createElement('strong');
+        cost.textContent = String(card.elixir_cost);
+
+        slot.dataset.cardId = card.id;
+        slot.className = 'card-slot';
+        slot.replaceChildren(image, cost);
+    });
 }
 
 function renderState(state: RenderState) {
@@ -420,6 +580,8 @@ function renderState(state: RenderState) {
     const projectiles = state.projectiles || [];
     const blueElixir = state.elixir?.blue ?? 0;
     const redElixir = state.elixir?.red ?? 0;
+    const blueHand = state.hands?.blue || [];
+    const redHand = state.hands?.red || [];
     const currentEntityIds = new Set(entities.map((entity) => entity.id));
     const currentProjectileIds = new Set(projectiles.map((projectile) => projectile.id));
     const frameIndex = Math.floor(performance.now() / 1000 * 30);
@@ -448,21 +610,20 @@ function renderState(state: RenderState) {
     projectiles.forEach(updateProjectile);
     updateEffects(state, frameIndex);
 
-    statusEl.innerHTML = `
-        <div class="metric"><span>Bridge</span><span>${stateUrl ? 'connected' : 'missing'}</span></div>
-        <div class="metric"><span>Time</span><span>${(state.time || 0).toFixed(2)}s</span></div>
-        <div class="elixir-panel">
-            ${renderElixirRow('red', redElixir)}
-            ${renderElixirRow('blue', blueElixir)}
-        </div>
-        <div class="metric"><span>Entities</span><span>${entities.length}</span></div>
-        <div class="metric"><span>Projectiles</span><span>${projectiles.length}</span></div>
-    `;
+    preloadCardImages([...(state.decks?.red || redHand), ...(state.decks?.blue || blueHand)]);
+    statusRefs.bridge.textContent = stateUrl ? 'connected' : 'missing';
+    statusRefs.time.textContent = `${(state.time || 0).toFixed(2)}s`;
+    statusRefs.entityCount.textContent = String(entities.length);
+    statusRefs.projectileCount.textContent = String(projectiles.length);
+    updateElixirRow('red', redElixir);
+    updateElixirRow('blue', blueElixir);
+    updateHand('red', redHand);
+    updateHand('blue', blueHand);
 }
 
 async function poll() {
     if (!stateUrl) {
-        statusEl.textContent = 'Missing ?state= bridge URL.';
+        statusRefs.bridge.textContent = 'missing';
         return;
     }
 
@@ -470,13 +631,14 @@ async function poll() {
         const res = await fetch(stateUrl, { cache: 'no-store' });
         if (res.ok) renderState(await res.json());
     } catch {
-        statusEl.textContent = 'Waiting for Python render bridge...';
+        statusRefs.bridge.textContent = 'waiting';
     } finally {
         window.setTimeout(poll, 50);
     }
 }
 
 async function boot() {
+    preloadCardIds(DEFAULT_CARD_IDS);
     addArenaDecor();
     await SCRenderer.init(container);
     await loadMappings();

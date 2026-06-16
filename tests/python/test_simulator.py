@@ -40,6 +40,7 @@ def test_env_step_deploys_and_returns_gymnasium_tuple():
     assert len(obs["entities"]) == 6
     assert info["seed"] == 1
     assert obs["elixir"] == {"blue": 5.0, "red": 5.0}
+    assert [card["id"] for card in obs["hands"]["blue"]] == ["knight", "archers", "giant", "pekka"]
 
     obs, reward, terminated, truncated, info = env.step({"type": "deploy", "card": "knight", "team": "blue", "x": 9, "y": 24})
     assert any(entity["card"] == "knight" for entity in obs["entities"])
@@ -48,6 +49,32 @@ def test_env_step_deploys_and_returns_gymnasium_tuple():
     assert truncated is False
     assert info["invalid_actions"] == []
     assert info["elixir"]["blue"] < 3
+    assert [card["id"] for card in obs["hands"]["blue"]] == ["musketeer", "archers", "giant", "pekka"]
+
+
+def test_deploy_requires_card_in_hand_and_cycles_only_on_success():
+    env = OpenRoyaleEnv()
+    obs, _ = env.reset(seed=1)
+    starting_hand = obs["hands"]["blue"]
+
+    obs, _, _, _, info = env.step({"type": "deploy", "card": "musketeer", "team": "blue", "x": 9, "y": 24})
+    assert info["invalid_actions"][0]["reason"] == "card not in hand"
+    assert obs["hands"]["blue"] == starting_hand
+
+    obs, _, _, _, info = env.step({"type": "deploy", "card": "knight", "team": "blue", "x": 9, "y": 24})
+    assert info["invalid_actions"] == []
+    assert [card["id"] for card in obs["hands"]["blue"]] == ["musketeer", "archers", "giant", "pekka"]
+
+
+def test_env_rejects_invalid_decks():
+    with pytest.raises(ValueError, match="exactly 8"):
+        OpenRoyaleEnv(decks=["knight"])
+
+    with pytest.raises(ValueError, match="duplicate"):
+        OpenRoyaleEnv(decks=["knight"] * 8)
+
+    with pytest.raises(ValueError, match="tower"):
+        OpenRoyaleEnv(decks=["knight", "archers", "giant", "pekka", "musketeer", "hog_rider", "skeletons", "king_tower"])
 
 
 def test_elixir_rejects_expensive_card_and_regenerates():
@@ -103,7 +130,7 @@ def test_env_human_render_mode_publishes_state(monkeypatch):
     try:
         env.reset(seed=1)
         assert opened_urls
-        assert "sim.html" in opened_urls[0]
+        assert opened_urls[0].startswith("http://localhost:5174/OpenRoyale/sim.html?")
 
         bridge = env._human_bridge
         assert bridge is not None
@@ -112,6 +139,7 @@ def test_env_human_render_mode_publishes_state(monkeypatch):
 
         assert state["time"] == 0.0
         assert state["elixir"] == {"blue": 5.0, "red": 5.0}
+        assert [card["id"] for card in state["hands"]["blue"]] == ["knight", "archers", "giant", "pekka"]
         assert len(state["entities"]) == 6
         assert state["entities"][0]["facing_direction"] == {"x": 0, "y": 1}
     finally:

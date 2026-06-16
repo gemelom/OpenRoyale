@@ -17,9 +17,12 @@ from .vector import Vector2
 STARTING_ELIXIR = 5.0
 MAX_ELIXIR = 10.0
 ELIXIR_REGEN_SECONDS = 2.8
+DECK_SIZE = 8
+HAND_SIZE = 4
 LANE_WIDTH = arena_config.ARENA_WIDTH / 2
 ADVANCED_DEPLOY_DEPTH = 5.0
 DEFAULT_HUMAN_RENDERER_URL = "http://localhost:5174/OpenRoyale/sim.html"
+DEFAULT_DECK_IDS = ("knight", "archers", "giant", "pekka", "musketeer", "hog_rider", "skeletons", "wizard")
 
 
 @dataclass
@@ -126,6 +129,7 @@ class OpenRoyaleEnv:
         frame_skip: int = 1,
         start_with_towers: bool = True,
         cards=None,
+        decks: dict[Team, Iterable[str]] | Iterable[str] | None = None,
         render_mode: str | None = None,
         human_renderer_url: str = DEFAULT_HUMAN_RENDERER_URL,
     ) -> None:
@@ -133,6 +137,8 @@ class OpenRoyaleEnv:
             raise ValueError("render_mode must be None or 'human'")
         self.config = EnvConfig(max_time=max_time, tick_rate=tick_rate, frame_skip=frame_skip, start_with_towers=start_with_towers)
         self.cards = cards or CARDS
+        self.decks = self._normalize_decks(decks)
+        self.card_cycle = {team: list(deck) for team, deck in self.decks.items()}
         self.game = Game(cards=self.cards)
         self.render_mode = render_mode
         self._human_bridge = _HumanRenderBridge(human_renderer_url) if render_mode == "human" else None
@@ -146,6 +152,7 @@ class OpenRoyaleEnv:
             self.game.start()
         self._previous_tower_hp = self._tower_hp()
         self.elixir = {"blue": STARTING_ELIXIR, "red": STARTING_ELIXIR}
+        self.card_cycle = {team: list(deck) for team, deck in self.decks.items()}
         observation = self.observe()
         if self.render_mode == "human":
             self.render()
@@ -205,6 +212,8 @@ class OpenRoyaleEnv:
         return {
             "time": self.game.time_elapsed,
             "elixir": dict(self.elixir),
+            "hands": self._hands_snapshot(),
+            "decks": self._decks_snapshot(),
             "entities": [
                 {
                     "id": entity.id,
@@ -243,6 +252,8 @@ class OpenRoyaleEnv:
         return {
             "time": self.game.time_elapsed,
             "elixir": dict(self.elixir),
+            "hands": self._hands_snapshot(),
+            "decks": self._decks_snapshot(),
             "arena": {
                 "width": arena_config.ARENA_WIDTH,
                 "height": arena_config.ARENA_HEIGHT,
@@ -339,6 +350,8 @@ class OpenRoyaleEnv:
             stats = self.cards[card_id]
             if stats.type == "tower":
                 return False, "tower cards cannot be deployed"
+            if card_id not in self.card_cycle[team][:HAND_SIZE]:
+                return False, "card not in hand"
             try:
                 x = float(action["x"])
                 y = float(action["y"])
@@ -352,6 +365,7 @@ class OpenRoyaleEnv:
 
             self.elixir[team] -= stats.elixir_cost
             self.game.add_entity_by_id(card_id, team, Vector2(x, y))
+            self._cycle_card(team, card_id)
             return True, None
         if action_type == "ability":
             entity_id = action.get("entity_id")
@@ -395,6 +409,46 @@ class OpenRoyaleEnv:
         amount = dt / ELIXIR_REGEN_SECONDS
         self.elixir["blue"] = min(MAX_ELIXIR, self.elixir["blue"] + amount)
         self.elixir["red"] = min(MAX_ELIXIR, self.elixir["red"] + amount)
+
+    def _normalize_decks(self, decks: dict[Team, Iterable[str]] | Iterable[str] | None) -> dict[Team, list[str]]:
+        if decks is None:
+            deck_by_team: dict[Team, Iterable[str]] = {"blue": DEFAULT_DECK_IDS, "red": DEFAULT_DECK_IDS}
+        elif isinstance(decks, dict):
+            deck_by_team = {"blue": decks.get("blue", DEFAULT_DECK_IDS), "red": decks.get("red", DEFAULT_DECK_IDS)}
+        else:
+            deck_by_team = {"blue": decks, "red": decks}
+
+        return {team: self._validate_deck(team, deck) for team, deck in deck_by_team.items()}
+
+    def _validate_deck(self, team: Team, deck: Iterable[str]) -> list[str]:
+        card_ids = list(deck)
+        if len(card_ids) != DECK_SIZE:
+            raise ValueError(f"{team} deck must contain exactly {DECK_SIZE} cards")
+        if len(set(card_ids)) != DECK_SIZE:
+            raise ValueError(f"{team} deck must not contain duplicate cards")
+        for card_id in card_ids:
+            if card_id not in self.cards:
+                raise ValueError(f"{team} deck contains unknown card: {card_id}")
+            if self.cards[card_id].type == "tower":
+                raise ValueError(f"{team} deck cannot contain tower card: {card_id}")
+        return card_ids
+
+    def _cycle_card(self, team: Team, card_id: str) -> None:
+        cycle = self.card_cycle[team]
+        hand_slot = cycle[:HAND_SIZE].index(card_id)
+        next_card = cycle.pop(HAND_SIZE)
+        cycle[hand_slot] = next_card
+        cycle.append(card_id)
+
+    def _hands_snapshot(self) -> dict[Team, list[dict[str, Any]]]:
+        return {team: [self._card_snapshot(card_id) for card_id in cycle[:HAND_SIZE]] for team, cycle in self.card_cycle.items()}
+
+    def _decks_snapshot(self) -> dict[Team, list[dict[str, Any]]]:
+        return {team: [self._card_snapshot(card_id) for card_id in deck] for team, deck in self.decks.items()}
+
+    def _card_snapshot(self, card_id: str) -> dict[str, Any]:
+        stats = self.cards[card_id]
+        return {"id": stats.id, "name": stats.name, "elixir_cost": stats.elixir_cost}
 
     def _in_base_deploy_zone(self, team: Team, y: float) -> bool:
         if team == "blue":
