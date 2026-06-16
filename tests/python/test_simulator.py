@@ -1,9 +1,12 @@
 import json
+from pathlib import Path
 from urllib.request import urlopen
 
 import pytest
 
-from openroyale_sim import CARDS, Game, OpenRoyaleEnv, Vector2
+from openroyale_sim import CARDS, Game, HeuristicPolicy, OpenRoyaleEnv, Vector2
+
+CARD_ASSET_DIR = Path(__file__).resolve().parents[2] / "public" / "assets" / "cards"
 
 
 def test_game_starts_with_six_towers():
@@ -77,6 +80,15 @@ def test_env_rejects_invalid_decks():
         OpenRoyaleEnv(decks=["knight", "archers", "giant", "pekka", "musketeer", "hog_rider", "skeletons", "king_tower"])
 
 
+def test_deployable_cards_have_slot_art():
+    missing = [
+        card_id
+        for card_id, stats in CARDS.items()
+        if stats.type != "tower" and not (CARD_ASSET_DIR / f"{card_id.replace('_', '-')}.png").exists()
+    ]
+    assert missing == []
+
+
 def test_elixir_rejects_expensive_card_and_regenerates():
     env = OpenRoyaleEnv(frame_skip=60)
     env.reset(seed=1)
@@ -84,6 +96,38 @@ def test_elixir_rejects_expensive_card_and_regenerates():
     _, _, _, _, info = env.step({"type": "deploy", "card": "pekka", "team": "blue", "x": 9, "y": 24})
     assert info["invalid_actions"][0]["reason"] == "not enough elixir"
     assert info["elixir"]["blue"] > 5
+
+
+def test_heuristic_policy_waits_for_full_elixir_then_backline_deploys_priciest_hand_card():
+    env = OpenRoyaleEnv()
+    obs, _ = env.reset(seed=1)
+    policy = HeuristicPolicy("blue")
+
+    env.elixir["blue"] = 9.9
+    obs = env.observe()
+    assert policy.action(obs) == {"type": "noop"}
+
+    env.elixir["blue"] = 10.0
+    obs = env.observe()
+    action = policy.action(obs)
+    assert action == {"type": "deploy", "card": "pekka", "team": "blue", "x": 9.0, "y": 31}
+    assert env.is_legal_deploy_position("blue", action["x"], action["y"])
+
+    obs, _, _, _, info = env.step(action)
+    assert info["invalid_actions"] == []
+    assert info["elixir"]["blue"] < 4
+    assert any(entity["card"] == "pekka" and entity["team"] == "blue" and entity["y"] > 30 for entity in obs["entities"])
+    assert [card["id"] for card in obs["hands"]["blue"]] == ["knight", "archers", "giant", "musketeer"]
+
+
+def test_heuristic_policy_uses_red_backline():
+    env = OpenRoyaleEnv()
+    obs, _ = env.reset(seed=1)
+    env.elixir["red"] = 10.0
+
+    action = HeuristicPolicy("red").action(env.observe())
+    assert action == {"type": "deploy", "card": "pekka", "team": "red", "x": 9.0, "y": 1.0}
+    assert env.is_legal_deploy_position("red", action["x"], action["y"])
 
 
 def test_deploy_position_must_be_legal():
