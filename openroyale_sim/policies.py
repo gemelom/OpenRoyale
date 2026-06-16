@@ -17,7 +17,7 @@ class HeuristicPolicy:
     """
 
     team: Team
-    full_elixir_threshold: float = 7
+    full_elixir_threshold: float = MAX_ELIXIR
 
     def action(self, observation: dict[str, Any]) -> dict[str, object]:
         elixir = float(observation.get("elixir", {}).get(self.team, 0.0))

@@ -190,6 +190,28 @@ def test_env_human_render_mode_publishes_state(monkeypatch):
         env.close()
 
 
+def test_human_render_state_remains_valid_json_after_tower_destroyed(monkeypatch):
+    monkeypatch.setattr("webbrowser.open", lambda _: None)
+    env = OpenRoyaleEnv(render_mode="human")
+    try:
+        env.reset(seed=1)
+        red_left_tower = next(entity for entity in env.game.entities if entity.team == "red" and entity.stats.id == "princess_tower" and entity.pos.x < 9)
+        red_left_tower.take_damage(99999)
+        env.step({"type": "noop"})
+
+        bridge = env._human_bridge
+        assert bridge is not None
+        with urlopen(bridge.endpoint, timeout=1) as response:
+            body = response.read().decode("utf-8")
+
+        assert "Infinity" not in body
+        state = json.loads(body)
+        destroyed_effect = next(effect for effect in state["effects"] if effect["name"] == "Tower_destroyed_ground1")
+        assert destroyed_effect["duration"] is None
+    finally:
+        env.close()
+
+
 def test_env_rejects_unknown_render_mode():
     with pytest.raises(ValueError, match="render_mode"):
         OpenRoyaleEnv(render_mode="rgb_array")

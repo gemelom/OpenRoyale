@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import math
 import threading
 from typing import Any, Iterable
 from urllib.parse import urlencode
@@ -315,7 +316,7 @@ class OpenRoyaleEnv:
                     "x": effect.pos.x,
                     "y": effect.pos.y,
                     "start_time": effect.start_time,
-                    "duration": effect.duration,
+                    "duration": effect.duration if math.isfinite(effect.duration) else None,
                     "file_name": effect.file_name,
                 }
                 for effect in self.game.effects
